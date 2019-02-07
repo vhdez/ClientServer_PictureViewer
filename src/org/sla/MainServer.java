@@ -8,8 +8,8 @@ import javafx.stage.Stage;
 
 public class MainServer extends Application {
     private ClientServerPictureViewerController myController;
-    // Change multicastMode to enable multicast
-    static boolean multicastMode = true;
+    // Change multicastMode to enable multi-cast
+    static boolean multicastMode = false;
 
     @Override
     public void start(Stage primaryStage) throws Exception{
@@ -20,7 +20,11 @@ public class MainServer extends Application {
         Thread.currentThread().setName("PictureViewer MainServer GUI Thread");
 
         // Display the scene
-        primaryStage.setTitle("PictureViewer SERVER");
+        if (multicastMode) {
+            primaryStage.setTitle("PictureViewer SERVER Multi-cast");
+        } else {
+            primaryStage.setTitle("PictureViewer SERVER");
+        }
         primaryStage.setScene(new Scene(root));
         primaryStage.show();
 

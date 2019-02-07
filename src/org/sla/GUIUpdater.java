@@ -1,6 +1,7 @@
 package org.sla;
 
 import javafx.application.Platform;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -22,25 +23,20 @@ public class GUIUpdater implements Runnable {
         Thread.currentThread().setName("GUIUpdater Thread");
 
         while (!Thread.interrupted()) {
-            // Try to get 2 strings from the inputQueue
-            String sender = (String)inputQueue.get();
-            while (sender == null) {
-                Thread.currentThread().yield();
-                sender = (String)inputQueue.get();
-            }
-            String finalSender = sender;
-
-            Image message = (Image)inputQueue.get();
+            // Try to get a Message from the inputQueue
+            Message message = (Message)inputQueue.get();
             while (message == null) {
                 Thread.currentThread().yield();
-                message = (Image)inputQueue.get();
+                message = (Message)inputQueue.get();
             }
-            Image finalMessage = message;
+            Message finalMessage = message; // needed for Platform.runLater()
 
-            if (!sender.equals(yourNameText.getText())) {
-                // Got a string... update the GUI with it
-                Platform.runLater(() -> receivedImage.setImage(finalMessage));
+
+            if (!message.sender().equals(yourNameText.getText())) {
+                // Got a message... update the GUI with its image
+                Platform.runLater(() -> receivedImage.setImage(finalMessage.data()));
             }
         }
+
     }
 }

@@ -4,7 +4,6 @@ import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
-
 import javax.imageio.ImageIO;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -17,26 +16,23 @@ public class CommunicationOut implements Runnable {
     private ArrayList<ObjectOutputStream> outStreams;
     private SynchronizedQueue outQueue;
     private TextField statusText;
-    private TextField yourNameText;
     private boolean serverMode;
 
     // CommunicationOut gets data from the Program's outQueue and writes it to 1 or many Sockets
 
-    CommunicationOut(Socket s, ObjectOutputStream out, SynchronizedQueue outQ, TextField status, TextField name) {
+    CommunicationOut(Socket s, ObjectOutputStream out, SynchronizedQueue outQ, TextField status) {
         socket = s;
         writer = out;
         outQueue = outQ;
         statusText = status;
-        yourNameText = name;
         serverMode = false;
     }
 
-    CommunicationOut(Socket s, ArrayList<ObjectOutputStream> outs, SynchronizedQueue outQ, TextField status, TextField name) {
+    CommunicationOut(Socket s, ArrayList<ObjectOutputStream> outs, SynchronizedQueue outQ, TextField status) {
         socket = s;
         outStreams = outs;
         outQueue = outQ;
         statusText = status;
-        yourNameText = name;
         serverMode = true;
     }
 
@@ -46,66 +42,56 @@ public class CommunicationOut implements Runnable {
 
         try {
             while (ClientServerPictureViewerController.connected && !Thread.interrupted()) {
-                // keep getting from output Queue until it has data
-                String sender = (String) outQueue.get();
-                while (sender == null) {
-                    Thread.currentThread().yield();
-                    sender = (String) outQueue.get();
-                }
-                String finalSender = sender;
-                System.out.println("CommunicationOut GOT: \"" + sender + "\"");
-
-                Image message = (Image)outQueue.get();
+                // keep getting from output Queue until it has a message
+                Message message = (Message) outQueue.get();
                 while (message == null) {
                     Thread.currentThread().yield();
-                    message = (Image)outQueue.get();
+                    message = (Message) outQueue.get();
                 }
-                Image finalMessage = message;
-                System.out.println("CommunicationOut GOT: \"" + message + "\"");
+                Message finalMessage = message;
+                System.out.println("CommunicationOut GOT: " + message);
 
-                // write both data to 1 or many sockets
+                // write message to 1 or many sockets
                 if (serverMode && MainServer.multicastMode) {
                     int clientCount = 0;
                     Iterator<ObjectOutputStream> allClients = outStreams.iterator();
                     while (allClients.hasNext()) {
                         ObjectOutputStream nextWriter = allClients.next();
                         // writer writes to 1 socket's output stream
-                        Integer dataCount = 2;
-                        nextWriter.writeObject(dataCount);
+                        nextWriter.writeObject(message);
                         nextWriter.flush();
-                        nextWriter.writeObject(sender);
-                        nextWriter.flush();
-                        //nextWriter.writeObject(message);
-                        //nextWriter.flush();
-                        ImageIO.write(SwingFXUtils.fromFXImage(message, null), "png", socket.getOutputStream());
-                        System.out.println("CommunicationOut to Client " + clientCount + ": \"" + message + "\" from " + sender);
+                        System.out.println("CommunicationOut to Client " + clientCount + ": " + message);
                         clientCount = clientCount + 1;
                     }
                 } else {
                     // writer writes to 1 socket's output stream
-                    Integer dataCount = 2;
-                    writer.writeObject(dataCount);
+                    writer.writeObject(message);
                     writer.flush();
-                    writer.writeObject(sender);
-                    writer.flush();
-                    //writer.writeObject(message);
-                    ImageIO.write(SwingFXUtils.fromFXImage(message, null), "png", socket.getOutputStream());
-                    //writer.flush();
                 }
 
-                Platform.runLater(() -> statusText.setText("SENT: \"" + finalMessage + "\" from " + finalSender));
-                System.out.println("CommunicationOut SENT: \"" + message + "\" from " + sender);
+                Platform.runLater(() -> statusText.setText("SENT: " + finalMessage));
+                System.out.println("CommunicationOut SENT: " + message);
 
             }
 
             // while loop ended!
-            writer.close();
             socket.close();
             System.out.println("CommunicationOut thread DONE; reader and socket closed.");
 
         } catch (Exception ex) {
+            if (ClientServerPictureViewerController.connected) {
+                ex.printStackTrace();
+                Platform.runLater(() -> statusText.setText("CommunicationOut: networking failed. Exiting...."));
+            }
+        }
+
+        try {
+            // CommunicationOut ending!
+            socket.close();
+            System.out.println("CommunicationOut thread DONE; reader and socket closed.");
+        } catch (Exception ex) {
             ex.printStackTrace();
-            Platform.runLater(() -> statusText.setText("CommunicationOut: networking failed. Exiting...."));
+            Platform.runLater(() -> statusText.setText("CommunicationOut: reader and socket closing failed...."));
         }
     }
 }
